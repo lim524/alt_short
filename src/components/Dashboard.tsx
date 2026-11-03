@@ -32,6 +32,14 @@ import AppShell, { type Section } from "./ui/AppShell";
 import Icon from "./ui/Icon";
 import SummaryCards from "./ui/SummaryCards";
 import CandidateList from "./ui/CandidateList";
+import Modal from "./ui/Modal";
+type DetailTool = "evidence" | "planner" | "fundamentals" | "ai";
+const toolLabels: Record<DetailTool, string> = {
+  evidence: "점수 근거",
+  planner: "숏 모의 시나리오",
+  fundamentals: "펀더멘털",
+  ai: "AI 시나리오",
+};
 const Chart = dynamic(() => import("./MarketChart"), {
   ssr: false,
   loading: () => <div className="empty">차트 준비 중…</div>,
@@ -53,7 +61,8 @@ export default function Dashboard() {
     [progress, setProgress] = useState(""),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [historyCount, setHistoryCount] = useState(0);
+    [historyCount, setHistoryCount] = useState(0),
+    [detailTool, setDetailTool] = useState<DetailTool | null>(null);
   const [market, setMarket] = useState<MarketSnapshot>(),
     [signals, setSignals] = useState<SignalSnapshot[]>([]),
     [active, setActive] = useState<SignalSnapshot>(),
@@ -71,6 +80,7 @@ export default function Dashboard() {
     [watch, setWatch] = useState<string[]>([]),
     [watchOnly, setWatchOnly] = useState(false);
   const controller = useRef<AbortController | null>(null),
+    detailTrigger = useRef<HTMLButtonElement | null>(null),
     scanning = useRef(false),
     latest = useRef({ config, risk, filters }),
     lastSignals = useRef<SignalSnapshot[]>([]);
@@ -84,6 +94,7 @@ export default function Dashboard() {
       current === "history" || current === "settings" ? "scan" : current,
     );
     setFocusTime(undefined);
+    setDetailTool(null);
   }, []);
   useEffect(() => {
     let alive = true;
@@ -792,7 +803,15 @@ export default function Dashboard() {
                         ? `마지막 마감 ${time(candles.at(-1)!.closeTime)}`
                         : "자료 없음"}
                     </div>
-                    <a className="analysis-callout" href="#score-evidence">
+                    <button
+                      type="button"
+                      className="analysis-callout"
+                      onClick={(e) => {
+                        detailTrigger.current = e.currentTarget;
+                        setDetailTool("evidence");
+                      }}
+                      aria-haspopup="dialog"
+                    >
                       <span className="callout-icon">
                         <Icon name="sparkle" size={23} />
                       </span>
@@ -809,97 +828,181 @@ export default function Dashboard() {
                         </small>
                       </div>
                       <Icon name="chevron" size={18} />
-                    </a>
-                    <section className="evidence" id="score-evidence">
-                      <h3>점수 근거 · {active.score}/100</h3>
-                      {active.factors.map((f) => (
-                        <details key={f.id} className={`factor ${f.status}`}>
-                          <summary>
-                            {f.name}{" "}
-                            <b>
-                              {f.points}/{f.weight}
-                            </b>{" "}
-                            <small>
-                              {f.status === "unknown"
-                                ? "미확인"
-                                : f.status === "pass"
-                                  ? "충족"
-                                  : "미충족"}
-                            </small>
-                          </summary>
-                          <p>실측: {f.actual}</p>
-                          <p>기준: {f.threshold}</p>
-                          <p>{f.explanation}</p>
-                          <p className="subtle">
-                            {f.at ? time(f.at) : "측정 시각 없음"} · {f.source}
-                          </p>
-                          {f.at && (
-                            <button
-                              onClick={() => {
-                                setFocusTime(f.at!);
-                              }}
-                            >
-                              관련 봉 위치 보기
-                            </button>
-                          )}
-                        </details>
+                    </button>
+                    <div
+                      className="detail-tool-buttons"
+                      aria-label="상세 분석 도구"
+                    >
+                      {(
+                        [
+                          {
+                            id: "evidence",
+                            icon: "history",
+                            description: "실측 지표와 요인별 배점",
+                          },
+                          {
+                            id: "planner",
+                            icon: "sliders",
+                            description: "가격·비용·손익비 설계",
+                          },
+                          {
+                            id: "fundamentals",
+                            icon: "search",
+                            description: "프로젝트 지표와 출처",
+                          },
+                          {
+                            id: "ai",
+                            icon: "sparkle",
+                            description: "근거 기반의 별도 의견",
+                          },
+                        ] as const
+                      ).map((tool) => (
+                        <button
+                          key={tool.id}
+                          type="button"
+                          aria-haspopup="dialog"
+                          onClick={(e) => {
+                            detailTrigger.current = e.currentTarget;
+                            setDetailTool(tool.id);
+                          }}
+                        >
+                          <span className={`tool-icon tool-${tool.id}`}>
+                            <Icon name={tool.icon} size={20} />
+                          </span>
+                          <span>
+                            <strong>{toolLabels[tool.id]}</strong>
+                            <small>{tool.description}</small>
+                          </span>
+                          <Icon name="chevron" size={16} />
+                        </button>
                       ))}
-                      <p>
-                        <b>트리거 조건:</b> {active.trigger}
-                      </p>
-                      <p>
-                        <b>무효화:</b> {active.invalidation}
-                      </p>
-                      <p className="warning">
-                        {active.blockers.length
-                          ? active.blockers.join(" · ")
-                          : "안전 조건 충족 · 진입 보장 없음"}
-                      </p>
-                      <details>
-                        <summary>반대 근거와 데이터 공백</summary>
-                        {active.opposing.map((r, i) => (
-                          <p key={i}>{r}</p>
-                        ))}
-                        {bundle?.warnings.map((w) => (
-                          <p key={w}>{w}</p>
-                        ))}
-                        <p>
-                          손절 돌파 또는 BTC 급등 시 숏 가설이 약화될 수
-                          있습니다.
-                        </p>
-                      </details>
-                      <p className="subtle">{active.levelReason}</p>
-                    </section>
-                    <Planner
-                      levels={levels}
-                      risk={risk}
-                      tick={bundle!.market.tickSize}
-                      bundle={bundle}
-                      onLevels={setLevels}
-                      onRisk={(r) => {
-                        setRisk(r);
-                        if (riskSchema.safeParse(r).success)
-                          void setPreference("risk", r).catch(() => {});
-                      }}
-                      onReset={() => setLevels(active.proposed)}
-                      onSave={async () => {
-                        if (!levels) return;
-                        try {
-                          await saveScenario(active, levels, risk);
-                          setHistoryCount(
-                            (await list<SignalSnapshot>("signals")).length,
-                          );
-                          setMessage(
-                            "시나리오 저장 완료 · 저장 시나리오 탭에서 확인하세요.",
-                          );
-                        } catch {
-                          setMessage(
-                            "저장 실패 · 입력과 브라우저 저장 공간을 확인하세요.",
-                          );
-                        }
-                      }}
-                    />
-                    <Research key={active.id} signal={active} />
+                    </div>
+                    <Modal
+                      open={detailTool !== null}
+                      title={detailTool ? toolLabels[detailTool] : "상세 분석"}
+                      subtitle={`${active.symbol} · ${active.strategy === "day" ? "데이트레이딩" : "스윙"} · 원본 ${time(active.createdAt)}`}
+                      onDismiss={() => setDetailTool(null)}
+                      returnFocusRef={detailTrigger}
+                    >
+                      <div hidden={detailTool !== "evidence"}>
+                        <section className="evidence" id="score-evidence">
+                          <h3>점수 근거 · {active.score}/100</h3>
+                          {active.factors.map((f) => (
+                            <details
+                              key={f.id}
+                              className={`factor ${f.status}`}
+                            >
+                              <summary>
+                                {f.name}{" "}
+                                <b>
+                                  {f.points}/{f.weight}
+                                </b>{" "}
+                                <small>
+                                  {f.status === "unknown"
+                                    ? "미확인"
+                                    : f.status === "pass"
+                                      ? "충족"
+                                      : "미충족"}
+                                </small>
+                              </summary>
+                              <p>실측: {f.actual}</p>
+                              <p>기준: {f.threshold}</p>
+                              <p>{f.explanation}</p>
+                              <p className="subtle">
+                                {f.at ? time(f.at) : "측정 시각 없음"} ·{" "}
+                                {f.source}
+                              </p>
+                              {f.at && (
+                                <button
+                                  onClick={() => {
+                                    setFocusTime(f.at!);
+                                    setDetailTool(null);
+                                    requestAnimationFrame(() =>
+                                      document
+                                        .querySelector(".detail .chart-module")
+                                        ?.scrollIntoView({ block: "center" }),
+                                    );
+                                  }}
+                                >
+                                  관련 봉 위치 보기
+                                </button>
+                              )}
+                            </details>
+                          ))}
+                          <p>
+                            <b>트리거 조건:</b> {active.trigger}
+                          </p>
+                          <p>
+                            <b>무효화:</b> {active.invalidation}
+                          </p>
+                          <p className="warning">
+                            {active.blockers.length
+                              ? active.blockers.join(" · ")
+                              : "안전 조건 충족 · 진입 보장 없음"}
+                          </p>
+                          <details>
+                            <summary>반대 근거와 데이터 공백</summary>
+                            {active.opposing.map((r, i) => (
+                              <p key={i}>{r}</p>
+                            ))}
+                            {bundle?.warnings.map((w) => (
+                              <p key={w}>{w}</p>
+                            ))}
+                            <p>
+                              손절 돌파 또는 BTC 급등 시 숏 가설이 약화될 수
+                              있습니다.
+                            </p>
+                          </details>
+                          <p className="subtle">{active.levelReason}</p>
+                        </section>
+                      </div>
+                      <div hidden={detailTool !== "planner"}>
+                        <Planner
+                          levels={levels}
+                          risk={risk}
+                          tick={bundle!.market.tickSize}
+                          bundle={bundle}
+                          onLevels={setLevels}
+                          onRisk={(r) => {
+                            setRisk(r);
+                            if (riskSchema.safeParse(r).success)
+                              void setPreference("risk", r).catch(() => {});
+                          }}
+                          onReset={() => setLevels(active.proposed)}
+                          onSave={async () => {
+                            if (!levels) return;
+                            try {
+                              await saveScenario(active, levels, risk);
+                              setHistoryCount(
+                                (await list<SignalSnapshot>("signals")).length,
+                              );
+                              setMessage(
+                                "시나리오 저장 완료 · 저장 시나리오 탭에서 확인하세요.",
+                              );
+                              setDetailTool(null);
+                            } catch {
+                              setMessage(
+                                "저장 실패 · 입력과 브라우저 저장 공간을 확인하세요.",
+                              );
+                            }
+                          }}
+                        />
+                      </div>
+                      <div hidden={detailTool !== "fundamentals"}>
+                        <Research
+                          key={`${active.id}-fundamentals`}
+                          signal={active}
+                          mode="fundamentals"
+                        />
+                      </div>
+                      <div hidden={detailTool !== "ai"}>
+                        <Research
+                          key={`${active.id}-ai`}
+                          signal={active}
+                          mode="ai"
+                        />
+                      </div>
+                    </Modal>
                   </>
                 ) : (
                   <div className="detail-placeholder">
@@ -947,16 +1050,9 @@ export default function Dashboard() {
               </p>
               <span>완료 봉 기준 · 원본 근거 보존</span>
             </div>
-            <div className="bottom-scan">
-              <button
-                className={running ? "primary stop" : "primary"}
-                onClick={toggleScan}
-              >
-                <Icon name={running ? "stop" : "play"} size={23} />
-                {running ? "스캔 중지" : "전체 스캔 시작"}
-              </button>
-              <p>점수는 검증 전 가설이며 모든 계획은 모의 분석입니다.</p>
-            </div>
+            <p className="analysis-disclaimer">
+              점수는 검증 전 가설이며 모든 계획은 모의 분석입니다.
+            </p>
           </>
         )}
       </div>

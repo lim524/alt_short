@@ -22,12 +22,25 @@ test("scan, inspect, edit, save, reopen and preserve original evidence", async (
   await page.getByRole("button", { name: "▶ 스캔 시작" }).click();
   await expect(page.getByText("완료 · 전체", { exact: false })).toBeVisible();
   await page.locator(".candidate-open").first().click();
-  await expect(
-    page.getByRole("heading", { name: "숏 모의 시나리오" }),
-  ).toBeVisible();
   await expect(page.locator("canvas").first()).toBeVisible();
-  await page.locator(".factor summary").first().click();
-  await expect(page.getByText("실측:", { exact: false }).first()).toBeVisible();
+  await page.getByRole("button", { name: "점수 근거", exact: false }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.locator(".factor summary").first().click();
+  await expect(
+    dialog.getByText("실측:", { exact: false }).first(),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "관련 봉 위치 보기" })
+    .first()
+    .click();
+  await expect(dialog).not.toBeVisible();
+  await page
+    .getByRole("button", { name: "숏 모의 시나리오", exact: false })
+    .click();
+  await expect(
+    dialog.getByRole("heading", { name: "숏 모의 시나리오", level: 3 }),
+  ).toBeVisible();
   const original = await page
     .getByLabel("진입 가격", { exact: true })
     .inputValue();
@@ -44,11 +57,15 @@ test("scan, inspect, edit, save, reopen and preserve original evidence", async (
     .getByRole("button", { name: "저장 시나리오", exact: true })
     .click();
   await page.getByRole("button", { name: "수정 계획 v1" }).click();
+  await page
+    .getByRole("button", { name: "숏 모의 시나리오", exact: false })
+    .click();
   await expect(page.getByLabel("진입 가격", { exact: true })).toHaveValue("98");
   await page.getByRole("button", { name: "추천값 복원" }).click();
   await expect(page.getByLabel("진입 가격", { exact: true })).toHaveValue(
     original,
   );
+  await dialog.getByRole("button", { name: "창 닫기" }).click();
   await page.getByRole("button", { name: "🔒 선 편집 잠김" }).click();
   await expect(page.getByLabel("entry 차트 선 이동")).toBeVisible();
   // Numeric fallback is exercised on both browser engines; mouse drag additionally on desktop.
@@ -61,6 +78,9 @@ test("scan, inspect, edit, save, reopen and preserve original evidence", async (
     await page.mouse.down();
     await page.mouse.move(box.x + 30, box.y + 37, { steps: 6 });
     await page.mouse.up();
+    await page
+      .getByRole("button", { name: "숏 모의 시나리오", exact: false })
+      .click();
     await expect(page.getByLabel("진입 가격", { exact: true })).not.toHaveValue(
       original,
     );
@@ -73,6 +93,9 @@ test("scan, inspect, edit, save, reopen and preserve original evidence", async (
     page.getByRole("button", { name: "원본 분석", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "원본 분석", exact: true }).click();
+  await page
+    .getByRole("button", { name: "숏 모의 시나리오", exact: false })
+    .click();
   await expect(page.getByLabel("진입 가격", { exact: true })).toHaveValue(
     original,
   );

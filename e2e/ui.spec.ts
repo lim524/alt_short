@@ -26,6 +26,19 @@ test("light dashboard, responsive navigation, watch list and reduced motion", as
         ) ?? fixtures[0],
     }),
   );
+  await page.route("**/api/fundamentals?*", (r) =>
+    r.fulfill({
+      json: {
+        symbol: "AAVEUSDT",
+        mapping: "unverified",
+        metrics: {},
+        sources: [],
+        warnings: ["자동 테스트용 펀더멘털 응답"],
+        news: [],
+        retrievedAt: Date.now(),
+      },
+    }),
+  );
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   const overflows = () =>
@@ -43,6 +56,45 @@ test("light dashboard, responsive navigation, watch list and reduced motion", as
   await expect(page.getByText("완료 · 전체", { exact: false })).toBeVisible();
   await page.locator(".candidate-open").first().click();
   await expect(page.locator("canvas").first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "전체 스캔 시작", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator(".evidence")).not.toBeVisible();
+  await expect(page.locator(".planner")).not.toBeVisible();
+  const openFundamentals = page.getByRole("button", {
+    name: "펀더멘털",
+    exact: false,
+  });
+  await openFundamentals.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "펀더멘털 조회" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByLabel("개인 AI 접근 토큰", { exact: false }),
+  ).not.toBeVisible();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+  await dialog.getByRole("button", { name: "펀더멘털 조회" }).click();
+  await expect(dialog.getByText("자동 테스트용 펀더멘털 응답")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(openFundamentals).toBeFocused();
+  await openFundamentals.click();
+  await expect(dialog.getByText("자동 테스트용 펀더멘털 응답")).toBeVisible();
+  await page.mouse.click(2, 2);
+  await expect(dialog).not.toBeVisible();
+  await page.getByRole("button", { name: "AI 시나리오", exact: false }).click();
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "펀더멘털 조회" }),
+  ).not.toBeVisible();
+  await expect(
+    dialog.getByLabel("개인 AI 접근 토큰", { exact: false }),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "창 닫기" }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
   await expect(page.locator(".summary-grid")).toContainText("숏 후보");
   await page
     .getByRole("button", { name: "AAVEUSDT 관심 종목", exact: true })
