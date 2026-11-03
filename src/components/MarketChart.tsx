@@ -16,10 +16,10 @@ import { ema, atr } from "../lib/market/indicators";
 import { roundTick } from "../lib/planner";
 type Key = keyof Levels;
 const colors: Record<Key, string> = {
-  entry: "#f1ca65",
-  stop: "#fa7581",
-  tp1: "#46d6ad",
-  tp2: "#62b8a7",
+  entry: "#c18a16",
+  stop: "#e24c59",
+  tp1: "#1e9974",
+  tp2: "#527ba4",
 };
 export default function MarketChart({
   candles,
@@ -55,24 +55,28 @@ export default function MarketChart({
     const chart = createChart(container.current, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: "#111923" },
-        textColor: "#9eafc2",
+        background: { type: ColorType.Solid, color: "#ffffff" },
+        textColor: "#8a8d98",
         attributionLogo: true,
       },
       grid: {
-        vertLines: { color: "#1c2835" },
-        horzLines: { color: "#1c2835" },
+        vertLines: { visible: false },
+        horzLines: { color: "#f0f1f4" },
       },
       timeScale: { timeVisible: true },
-      rightPriceScale: { borderColor: "#273544" },
+      rightPriceScale: { borderVisible: false },
+      crosshair: {
+        vertLine: { color: "#b9bdc7", labelBackgroundColor: "#24252a" },
+        horzLine: { color: "#b9bdc7", labelBackgroundColor: "#24252a" },
+      },
     });
     chartRef.current = chart;
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#46d6ad",
-      downColor: "#fa7581",
+      upColor: "#629aeb",
+      downColor: "#ee6170",
       borderVisible: false,
-      wickUpColor: "#46d6ad",
-      wickDownColor: "#fa7581",
+      wickUpColor: "#629aeb",
+      wickDownColor: "#ee6170",
       priceFormat: {
         type: "price",
         minMove: tick,
@@ -103,7 +107,7 @@ export default function MarketChart({
       candles.map((c) => ({
         time: c.time as UTCTimestamp,
         value: c.volume,
-        color: c.close >= c.open ? "#46d6ad55" : "#fa758155",
+        color: c.close >= c.open ? "#629aeb33" : "#ee617033",
       })),
     );
     if (showEma)
@@ -114,7 +118,7 @@ export default function MarketChart({
         );
         chart
           .addSeries(LineSeries, {
-            color: period === 20 ? "#e9c66c" : "#8e9ee6",
+            color: period === 20 ? "#d7a54b" : "#a7a2d7",
             lineWidth: 1,
             priceLineVisible: false,
             lastValueVisible: false,
@@ -134,7 +138,7 @@ export default function MarketChart({
         series.createPriceLine({
           price,
           title,
-          color: "#90a5bf",
+          color: "#9ca3b2",
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
@@ -272,7 +276,7 @@ export default function MarketChart({
                 style={{
                   top: Math.min(yEntry, yStop),
                   height: Math.abs(yEntry - yStop),
-                  background: "#fa758119",
+                  background: "#ee617013",
                 }}
               />
             )}
@@ -282,7 +286,7 @@ export default function MarketChart({
                 style={{
                   top: Math.min(yEntry, yTp),
                   height: Math.abs(yTp - yEntry),
-                  background: "#46d6ad12",
+                  background: "#359e7b0b",
                 }}
               />
             )}
